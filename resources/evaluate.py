@@ -12,7 +12,7 @@ from p_tqdm import p_map
 # package from: https://github.com/deepmind/surface-distance
 from surface_distance import compute_surface_distances, compute_surface_dice_at_tolerance
 
-from totalsegmentator.map_to_binary import class_map_5_parts
+from totalsegmentator.map_to_binary import class_map_5_parts, class_map
 
 
 def dice_score(y_true, y_pred):
@@ -64,18 +64,21 @@ if __name__ == "__main__":
     # class_map = class_map_5_parts["class_map_part_muscles"]
     # class_map = class_map_5_parts["class_map_part_ribs"]
     class_map_name = sys.argv[3]
-    class_map = class_map_5_parts[class_map_name]
+    if class_map_name in {k for k in class_map_5_parts.keys() if k != 'test'}:
+        cmap = class_map_5_parts[class_map_name]
+    else:
+        cmap = class_map[class_map_name]
 
     subjects = [x.stem.split(".")[0] for x in gt_dir.glob("*.nii.gz")]
 
     # Use multiple threads to calculate the metrics
     res = p_map(partial(calc_metrics, gt_dir=gt_dir, pred_dir=pred_dir,
-                        class_map=class_map), subjects, num_cpus=8, disable=True)
+                        class_map=cmap), subjects, num_cpus=8, disable=True)
     res = pd.DataFrame(res)
 
     for metric in ["dice", "surface_dice_3"]:
         res_all_rois = []
-        for roi_name in class_map.values():
+        for roi_name in cmap.values():
             row_wo_nan = res[f"{metric}-{roi_name}"].dropna()
             res_all_rois.append(row_wo_nan.mean())
             print(f"{roi_name} {metric}: {row_wo_nan.mean():.3f}")
